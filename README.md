@@ -1,4 +1,4 @@
-# 第一部分：rfcli命令
+# 一.rfcli命令
 ```
 使用RESTful API调用的命令行界面
 ```
@@ -18,7 +18,7 @@ rfcli命令简写 rc
 
 
 
-# 第二部分：scli命令
+# 二.scli命令
 ```
 使用socket.js连接调用的命令行界面
 ```
