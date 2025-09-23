@@ -5,10 +5,11 @@
 rfcli命令简写 rc
 
 ## 配置命令
-### 1.rc config --url:xxx 配置链接的地址
-### 2.rc config --token:token  配置token
-### 3.rc config --username:xxx,--password:xxxx 配置账号密码
-
+'''
+ 1.rc config --url:xxx 配置链接的地址
+ 2.rc config --token:token  配置token
+ 3.rc config --username:xxx,--password:xxxx 配置账号密码
+'''
 
 
 
