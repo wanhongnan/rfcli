@@ -1,5 +1,19 @@
-# 一.rfcli命令
+# python安装
+## windows
 ```
+1.下载
+    https://www.python.org/downloads/
+    https://www.python.org/ftp/python/3.13.7/python-3.13.7-amd64.exe
+
+2.安装后的python
+    C:\Users\admin\AppData\Local\Programs\Python\Python313\
+    python.exe --version
+    python.exe -m venv env
+3.
+```
+    .\env\Scripts\activate
+# 一.rfcli命令
+```ls
 使用RESTful API调用的命令行界面
 ```
 
