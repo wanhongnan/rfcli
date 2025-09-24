@@ -12,7 +12,7 @@
     env\Scripts\activate
 
 ```
-    .\env\Scripts\activate
+
 # 一.rfcli命令
 ```ls
 使用RESTful API调用的命令行界面
