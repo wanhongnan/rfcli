@@ -9,7 +9,8 @@
     C:\Users\admin\AppData\Local\Programs\Python\Python313\
     python.exe --version
     python.exe -m venv env
-3.
+    env\Scripts\activate
+
 ```
     .\env\Scripts\activate
 # 一.rfcli命令
