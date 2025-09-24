@@ -11,7 +11,7 @@
     python.exe --version
     python.exe -m venv env
     env\Scripts\activate
-
+    
 ```
 
 # 一.rfcli命令
