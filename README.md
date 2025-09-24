@@ -7,6 +7,7 @@
 
 2.安装后的python
     C:\Users\admin\AppData\Local\Programs\Python\Python313\
+    sysdm.cpl
     python.exe --version
     python.exe -m venv env
     env\Scripts\activate
