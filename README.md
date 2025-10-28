@@ -8,15 +8,18 @@
 2.安装后的python
     C:\Users\admin\AppData\Local\Programs\Python\Python313\
     sysdm.cpl
-    python.exe --version
-    python.exe -m venv env
+    python --version
+    python -m venv env
     env\Scripts\activate
     
 ```
+## mac
+python3 -m venv env
+source ./env/bin/activate
 
 # 一.rfcli命令
 ```ls
-使用RESTful API调用的命令行界面
+通过swagger的api地址，解析出rfcli的命令行，使用RESTful API调用的命令行界面
 ```
 
 ## 命令简写
@@ -26,7 +29,7 @@ rfcli命令简写 rc
 
 ## 配置命令
 ```
- 1.rc config --url:xxx 配置链接的地址
+ 1.rc config --url:xxx 配置swagger链接的地址
  2.rc config --token:token  配置token
  3.rc config --username:xxx,--password:xxxx 配置账号密码
 ```
