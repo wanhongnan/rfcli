@@ -1,19 +1,13 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": "../ftsite/ftsite-api"
 		},
 		{
-			"path": "../stock_quantitative/py_tvbot"
+			"path": "../ftsite/ftsite-admin"
 		},
 		{
-			"path": "../kinit/kinit-admin"
-		},
-		{
-			"path": "../kinit/kinit-api"
-		},
-		{
-			"path": "../kinit/kinit-task"
+			"path": "../ftsite/ftsite-uni"
 		}
 	],
 	"settings": {
