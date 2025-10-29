@@ -111,7 +111,7 @@ def api_request_proc(args):
     # 打印请求详情（仅在 raw 格式下）
     if args.format in ['raw', 'r']:
         print("------------------------------------HTTP Request Details:------------------------------------")
-        print(f"Method: {args.method.upper()}")
+        print(f"Method: {args.request_method.upper()}")
         print(f"URL: {url}")
         print(f"Headers: {json.dumps(headers, indent=2)}")
         if query_params:
@@ -121,7 +121,7 @@ def api_request_proc(args):
 
     # 发送请求
     try:
-        method = args.method.upper()
+        method = args.request_method.upper()
         if method == 'GET':
             response = requests.get(url, headers=headers, params=query_params)
         elif method == 'POST':
@@ -134,7 +134,7 @@ def api_request_proc(args):
             else:   
                 response = requests.delete(url, headers=headers, params=query_params)
         else:
-            print(f"Unsupported HTTP method: {args.method}")
+            print(f"Unsupported HTTP method: {args.request_method}")
             return
 
         # 检查响应状态
@@ -399,7 +399,7 @@ def generate_cli_commands(api_data, subparsers):
                                         paramwhere=paramwhere, 
                                         security=security, 
                                         bodyschema=bodyschema,
-                                        method=method, 
+                                        request_method=method, 
                                         path=path)
 
 def output_to_table(data, output_file):
