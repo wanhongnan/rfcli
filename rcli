@@ -139,21 +139,38 @@ def api_request_proc(args):
 
         # 检查响应状态
         response.raise_for_status()
+        response_json = response.json()
+        if "data" in response.json():
+            response_json = response.json().get("data")
+        # 检查并保存 access_token 和 refresh_token
+        if ( 
+            response_json and
+            isinstance(response_json, list) == False and
+            "token_type" in response_json and
+            response_json.get("token_type") == "bearer" and
+            "access_token" in response_json and
+            "refresh_token" in response_json
+        ):
+            config = load_config()
+            config["bearer"] = response_json["access_token"]
+            config["bearer_refresh"] = response_json["refresh_token"]
+            save_config(config)
+            print("Tokens have been updated in the configuration file.")
 
         # 输出结果
         if args.format in ['json', 'j']:
-            print(json.dumps(response.json(), indent=2, ensure_ascii=False))
+            print(json.dumps(response_json, indent=2, ensure_ascii=False))
         elif args.format in ['table', 't']:
-            output_to_table(response.json(), args.out)
+            output_to_table(response_json, args.out)
         elif args.format in ['raw', 'r']:
             print("\n------------------------------------HTTP Response Details:")
             print(f"Status Code: {response.status_code}")
             print(f"Headers: {json.dumps(dict(response.headers), indent=2)}")
             print(f"Body: {response.text}")
             print(f"------------------------------------Body Json:")
-            print(json.dumps(response.json(), indent=2, ensure_ascii=False))
+            print(json.dumps(response_json, indent=2, ensure_ascii=False))
         else:  # 默认格式为 YAML
-            print(yaml.dump(response.json(), allow_unicode=True, default_flow_style=False))
+            print(yaml.dump(response_json, allow_unicode=True, default_flow_style=False))
     except requests.exceptions.RequestException as e:
         # 请求失败时的处理
         print(f"请求失败: {e}")
