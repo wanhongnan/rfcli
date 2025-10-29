@@ -1,5 +1,5 @@
 {
   "swagger": "http://127.0.0.1:9000/openapi.json",
   "url": "http://127.0.0.1:9000/",
-  "token": ""
+  "bearer": "asfasf"
 }

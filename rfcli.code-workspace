@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../stock_quantitative/py_tvbot"
+		},
+		{
+			"path": "../kinit/kinit-admin"
+		},
+		{
+			"path": "../kinit/kinit-api"
+		},
+		{
+			"path": "../kinit/kinit-task"
+		}
+	],
+	"settings": {
+		"markdown.validate.enabled": true
+	}
+}

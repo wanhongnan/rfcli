@@ -7,6 +7,7 @@ import os
 import pandas as pd  # 用于表格显示
 import json
 import yaml
+from jsonschema import validate, ValidationError
 
 CONFIG_FILE = 'config.json'
 
@@ -25,16 +26,158 @@ def save_config(config):
 
 def load_swagger_json(url):
     """从 Swagger JSON 加载 API 定义"""
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
-
-import argparse
-import json
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"加载 Swagger JSON 失败: {e}")
+        if e.response is not None:
+            print(f"HTTP 状态码: {e.response.status_code}")
+            print(f"响应内容: {e.response.text}")
+        return None
 
 def api_request_proc(args):
-    # 处理请求的函数，具体实现取决于你的需求
-    print("执行 API 请求:", args)
+    """
+    处理 API 请求
+    :param args: 命令行解析后的参数
+    """
+    # 构建请求 URL
+    # 加载配置
+    config = load_config()
+
+    # 构建请求 URL，使用 config.url 作为前缀
+    base_url = config.get('url', '').rstrip('/')  # 去掉末尾的斜杠
+    url = f"{base_url}{args.path}"
+    if args.paramwhere:
+        for param_name, param_location in args.paramwhere.items():
+            if param_location == 'path':
+                # 替换路径参数
+                url = url.replace(f"{{{param_name}}}", str(getattr(args, param_name)))
+
+    # 构建请求头，使用 config.bearer 作为默认 Token
+    headers = {}
+    if args.security == "bearer" and config.get('bearer'):
+        headers['Authorization'] = f"Bearer {config['bearer']}"
+
+    # 构建查询参数
+    query_params = {}
+    if args.paramwhere:
+        for param_name, param_location in args.paramwhere.items():
+            if param_location == 'query' and hasattr(args, param_name):
+                query_params[param_name] = getattr(args, param_name)
+
+    # 构建请求体
+    json_body = {}
+    if hasattr(args, "json") and args.json:
+        if os.path.isfile(args.json):  # 如果是文件路径
+            file_ext = os.path.splitext(args.json)[1].lower()
+            try:
+                with open(args.json, 'r') as file:
+                    if file_ext == '.json':
+                        json_body = json.load(file)
+                    elif file_ext in ['.yaml', '.yml']:
+                        json_body = yaml.safe_load(file)
+                    else:
+                        print(f"{args.json}不支持的文件格式: {file_ext}. 仅支持 .json, .yaml, .yml")
+                        return
+            except Exception as e:
+                print(f"读取文件失败: {e}")
+                return
+        else:  # 如果是直接传递的 JSON 字符串
+            json_body = args.json
+
+    if hasattr(args, 'items') and args.items and args.bodyschema and get_param_type('type') == 'array':
+        # 如果 bodyschema 是数组类型
+        item_schema = args.bodyschema.get('items', {})
+        json_body = []
+        for item in args.items:
+            # 将命令行参数转换为数组元素
+            json_body.append(eval_type(get_param_type(item_schema))(item))
+    else:
+        # 如果 bodyschema 是对象类型
+        for param_name, param_location in args.paramwhere.items():
+            if param_location == 'body' and hasattr(args, param_name):
+                json_body[param_name] = getattr(args, param_name)
+
+    # 验证请求体 JSON 是否符合 schema
+    if args.bodyschema and json_body is not None:
+        isvalid = validate_json_with_schema(json_body, args.bodyschema)
+        if not isvalid:
+            print("提供的 JSON 不符合请求体的 schema 要求。")
+            print_schema_details(args.bodyschema)
+            return
+
+    # 打印请求详情（仅在 raw 格式下）
+    if args.format in ['raw', 'r']:
+        print("------------------------------------HTTP Request Details:------------------------------------")
+        print(f"Method: {args.method.upper()}")
+        print(f"URL: {url}")
+        print(f"Headers: {json.dumps(headers, indent=2)}")
+        if query_params:
+            print(f"Query Params: {json.dumps(query_params, indent=2)}")
+        if json_body:
+            print(f"Body: {json.dumps(json_body, indent=2)}")
+
+    # 发送请求
+    try:
+        method = args.method.upper()
+        if method == 'GET':
+            response = requests.get(url, headers=headers, params=query_params)
+        elif method == 'POST':
+            response = requests.post(url, headers=headers, params=query_params, json=json_body)
+        elif method == 'PUT':
+            response = requests.put(url, headers=headers, params=query_params, json=json_body)
+        elif method == 'DELETE':
+            if args.json:
+                response = requests.delete(url, headers=headers, json=json_body)
+            else:   
+                response = requests.delete(url, headers=headers, params=query_params)
+        else:
+            print(f"Unsupported HTTP method: {args.method}")
+            return
+
+        # 检查响应状态
+        response.raise_for_status()
+
+        # 输出结果
+        if args.format in ['json', 'j']:
+            print(json.dumps(response.json(), indent=2, ensure_ascii=False))
+        elif args.format in ['table', 't']:
+            output_to_table(response.json(), args.out)
+        elif args.format in ['raw', 'r']:
+            print("\n------------------------------------HTTP Response Details:")
+            print(f"Status Code: {response.status_code}")
+            print(f"Headers: {json.dumps(dict(response.headers), indent=2)}")
+            print(f"Body: {response.text}")
+            print(f"------------------------------------Body Json:")
+            print(json.dumps(response.json(), indent=2, ensure_ascii=False))
+        else:  # 默认格式为 YAML
+            print(yaml.dump(response.json(), allow_unicode=True, default_flow_style=False))
+    except requests.exceptions.RequestException as e:
+        # 请求失败时的处理
+        print(f"请求失败: {e}")
+        if e.response is not None:
+            try:
+                # 尝试解析错误响应为 JSON
+                error_json = e.response.json()
+                if args.format in ['json', 'j']:
+                    print(json.dumps(error_json, indent=2, ensure_ascii=False))
+                elif args.format in ['table', 't']:
+                    output_to_table(error_json, args.out)
+                elif args.format in ['raw', 'r']:
+                    print("\n------------------------------------HTTP Error Response Details:")
+                    print(f"Status Code: {e.response.status_code}")
+                    print(f"Headers: {json.dumps(dict(e.response.headers), indent=2)}")
+                    print(f"Body: {json.dumps(error_json, indent=2, ensure_ascii=False)}")
+                else:  # 默认格式为 YAML
+                    print(yaml.dump(error_json, allow_unicode=True, default_flow_style=False))
+            except ValueError:
+                # 如果错误响应不是 JSON 格式，直接输出文本内容
+                print("\n------------------------------------HTTP Error Response Details:")
+                print(f"Status Code: {e.response.status_code}")
+                print(f"Headers: {json.dumps(dict(e.response.headers), indent=2)}")
+                print(f"Body: {e.response.text}")
 
 def api_command_proc(args):
     # 处理请求的函数，具体实现取决于你的需求
@@ -52,8 +195,141 @@ def get_param_type(param):
         
     return param.get("schema",{}).get('type','string')
 
-def generate_cli_commands(api_data, subparsers):
+def eval_type(type_str):
+    """将字符串类型转换为 Python 类型"""
+    type_mapping = {
+        'string': str,
+        'integer': int,
+        'boolean': bool,
+        'number': float,
+        'array': list,
+        'object': dict
+    }
+    return type_mapping.get(type_str, str)  # 默认返回 str 类型
 
+def get_security_type(method_details):
+    # 检查 security 字段
+    security = method_details.get('security', [])
+    for item in security:
+        if 'OAuth2PasswordBearer' in item:
+            return "bearer"
+    return None  # 如果没有找到，则返回 None
+
+def print_schema_details(schema):
+    """
+    打印 schema 的参数名、类型、是否必传和说明，输出对齐
+    :param schema: JSON Schema 字典
+    """
+    if not schema or 'properties' not in schema:
+        print("无效的 schema 或 schema 中没有定义 properties。")
+        return
+
+    required_fields = schema.get('required', [])  # 获取必传字段列表
+
+    # 表头
+    print(f"{'参数名':<24}{'类型':<15}{'必传':<6}{'说明':<30}")
+    print("-" * 75)
+
+    for param_name, param_details in schema['properties'].items():
+        param_type = get_param_type(param_details)  # 获取参数类型
+        param_required = "是" if param_name in required_fields else "否"  # 判断是否必传
+        param_description = param_details.get('description', param_details.get('title', '无说明'))  # 获取说明或标题
+
+        # 打印每一行，列宽固定
+        print(f"{param_name:<24}{param_type:<15}{param_required:<6}{param_description:<30}")
+
+def validate_json_with_schema(json_data, schema):
+    """
+    使用 schema 检查 JSON 数据
+    :param json_data: 要验证的 JSON 数据
+    :param schema: 用于验证的 schema
+    :return: 如果验证通过返回 True，否则返回 False
+    """
+    try:
+        validate(instance=json_data, schema=schema)
+        return True
+    except ValidationError as e:
+        print(f"JSON 验证失败: {e.message}")
+        return False
+    
+def get_default_value(param_details):
+    """
+    获取参数的默认值
+    :param param_details: 参数的 schema 定义
+    :return: 默认值或 None
+    """
+    return param_details.get('default', None)
+
+def extract_body_schema(details, components=None):
+    """
+    提取 requestBody 的 schema，支持 application/json 格式和 $ref 解析
+    :param details: API 方法的详细信息
+    :param components: Swagger/OpenAPI 的 components 字段，用于解析 $ref
+    :return: schema 字典
+    """
+    if 'requestBody' in details:
+        content = details['requestBody'].get('content', {})
+        # 仅处理 application/json 格式
+        if 'application/json' in content:
+            schema = content['application/json'].get('schema', {})
+            # 解析 $ref 引用
+            if '$ref' in schema:
+                ref_path = schema['$ref'].split('/')  # 解析 $ref 路径
+                if ref_path[0] == '#' and components:
+                    # 从 components 中解析引用
+                    key = ref_path[-1]  # 获取 $ref 的最后一个部分作为 key
+                    return components.get('schemas', {}).get(key, {})
+            return schema
+    return None
+
+def add_request_body_to_command(paramwhere, command_parser, bodyschema):
+    """
+    根据 requestBody 的 bodyschema 定义，将其转换为命令行参数
+    :param details: API 方法的详细信息
+    :param command_parser: 命令解析器
+    :param bodyschema: requestBody 的 schema 定义
+    """
+    if not bodyschema or 'properties' not in bodyschema:
+        return
+
+    # 检查是否是数组格式
+    if bodyschema.get('type') == 'array':
+        item_schema = bodyschema.get('items', {})
+        item_type = get_param_type(item_schema) #item_schema.get('type', 'string')  # 默认类型为 string
+        paramwhere['items'] = 'body'
+        command_parser.add_argument(
+            '--items',
+            nargs='+',  # 接受多个值
+            type=eval_type(item_type),  # 动态解析类型
+            help=f"Array of items, type: {item_type}",
+            default=get_default_value(item_schema)
+        )
+    else:
+        # 遍历 bodyschema 的 properties
+        required_fields = bodyschema.get('required', [])  # 获取必传字段列表
+        for param_name, param_details in bodyschema['properties'].items():
+            param_type = get_param_type(param_details)  # 默认类型为 string
+            param_help = f"[{param_type}]{param_details.get('title', '')},{param_details.get('description', '')}(default: {get_default_value(param_details)})"
+            is_required = param_name in required_fields  # 判断是否必传
+            paramwhere[param_name] = 'body'
+            if is_required:
+                command_parser.add_argument(
+                    f'{param_name}',
+                    type=eval_type(param_type),  # 动态解析类型
+                    help=f"[required][{paramwhere[param_name]}]{param_help}",
+                    default=get_default_value(param_details),
+                )
+            else:
+                command_parser.add_argument(
+                    f'--{param_name}',
+                    type=eval_type(param_type),  # 动态解析类型
+                    required=False,
+                    default=get_default_value(param_details),
+                    help=f"[{paramwhere[param_name]}]{param_help}"
+                )
+            
+def generate_cli_commands(api_data, subparsers):
+    # 存储父级命令解析器的树状结构
     parent_tree = {}
     # 遍历 API 路径
     for path, methods in api_data['paths'].items():
@@ -86,68 +362,45 @@ def generate_cli_commands(api_data, subparsers):
             # 获取最后一个路径部分作为子命令
             part = path_parts[-1].strip('{').strip('}').replace('_','')
             command_name = part+f'{method.lower()[0]}'
-            command_parser = parent_subparsers.add_parser(command_name, help=f"{details.get('summary', '')}")
-            command_parser.description = f"[{method}],{details.get('summary', '')},{details.get('description', '')}"
-            
+            command_parser = parent_subparsers.add_parser(command_name, help=f"{details.get('summary', '')} - [{method}] {path}")
+            command_parser.description = f"[{method}],{details.get('summary', '')},{details.get('description', '')} - {path}"
+            security = get_security_type(details)
             # 处理查询参数
             paramwhere = {}
-            paramrequired = {}
+            bodyschema = extract_body_schema(details, api_data.get('components'))
             if 'parameters' in details:
                 for param in details['parameters']:
                     # 获取参数名称、帮助信息和类型
                     param_name = param['name']
                     type = get_param_type(param)
-                    param_type = str
-                    if type == 'integer':
-                        param_type = int
-                    elif type == 'boolean':
-                        param_type = bool
-                    param_help = f"[{type}],{param.get('summary', '')},{param.get('description', '')}"
+                    param_type = eval_type(type)
+                    param_help = f"[{type}]{param.get('schema').get('title', '')}(default: {get_default_value(param)})"
                     if param['in'] == 'query':
                         paramwhere[param_name] = param['in']
                         # 判断参数是否可选
                         if 'required' in param and param['required']:
-                            paramrequired[param_name] = True
-                            command_parser.add_argument(f'-{param_name}', type=param_type, help=param_help)
+                            command_parser.add_argument(f'{param_name}', type=param_type, help=f'[required][{paramwhere[param_name]}]{param_help}', default=get_default_value(param))
                         else:
-                            paramrequired[param_name] = False
-                            command_parser.add_argument(f'--{param_name}', type=param_type, help=param_help)
+                            command_parser.add_argument(f'--{param_name}', type=param_type, help=f'[{paramwhere[param_name]}]{param_help}', default=get_default_value(param), required=False)
                     elif param['in'] == 'path':
-                        paramrequired[param_name] = True
                         paramwhere[param_name] = param['in']
-                        command_parser.add_argument(f'-{param_name}', type=param_type, help=param_help)
+                        command_parser.add_argument(f'{param_name}', type=param_type, help=f'[required][{paramwhere[param_name]}]{param_help}', default=get_default_value(param))
 
             # 添加参数
             if 'requestBody' in details:
-                paramrequired['body'] = True
-                command_parser.add_argument('-json', type=json.loads, default={}, help='Request body in JSON format or JSON file path')
-            command_parser.add_argument('--out', help='Output file for the result')
+                add_request_body_to_command(paramwhere, command_parser, bodyschema)
+                command_parser.add_argument('-j','--json', type=json.loads, default={}, help='Request body in JSON format or JSON file path or Yaml file path', required=False)
+            command_parser.add_argument('-o','--out', help='Output file for the result')
+            command_parser.add_argument('-f','--format', choices=['table','line','json','raw','t','l','j','r'], help='Output format (default:line)', default='line')
 
             # 设置处理函数
-            command_parser.set_defaults(func=api_request_proc, parser=parser, paramwhere=paramwhere, paramrequired=paramrequired, method=method, path=path)
-
-
-def build_request(command, params, token, api_prefix, json_body):
-    """构建 HTTP 请求"""
-    method = command['method']
-    url = f"{api_prefix}{command['path']}"
-
-    headers = {'Authorization': f'Bearer {token}'}
-    response = None
-
-    if method == 'GET':
-        response = requests.get(url, headers=headers, params=params)
-    elif method == 'POST':
-        response = requests.post(url, headers=headers, json=json_body)
-    elif method == 'PUT':
-        response = requests.put(url, headers=headers, json=json_body)
-    elif method == 'DELETE':
-        response = requests.delete(url, headers=headers, params=params)
-    else:
-        raise ValueError(f"Unsupported method: {method}")
-
-    response.raise_for_status()
-    return response.json()
+            command_parser.set_defaults(func=api_request_proc, 
+                                        parser=parser, 
+                                        paramwhere=paramwhere, 
+                                        security=security, 
+                                        bodyschema=bodyschema,
+                                        method=method, 
+                                        path=path)
 
 def output_to_table(data, output_file):
     """将输出写入表格格式"""
@@ -164,6 +417,9 @@ def config_command(args):
         hasChange = True
     if args.url:
         config['url'] = args.url
+        hasChange = True
+    if args.bearer:
+        config['bearer'] = args.bearer
         hasChange = True
     if args.token:
         config['token'] = args.token
@@ -186,12 +442,16 @@ def main():
     config_parser = subparsers.add_parser('config', help='Configure CLI settings')
     config_parser.add_argument('--swagger', help='Swagger JSON URL')
     config_parser.add_argument('--url', help='API prefix URL')
-    config_parser.add_argument('--token', help='OAuth2 Token')
+    config_parser.add_argument('--bearer', help='OAuth2 bearer Token')
+    config_parser.add_argument('--token', help='Header Token Field')
     config_parser.set_defaults(func=config_command, parser=config_parser)  # 绑定处理函数
 
     config = load_config()
     # 加载 Swagger JSON
     swagger_json = load_swagger_json(config['swagger'])
+    if not swagger_json:
+        print("无法加载 Swagger JSON，请检查配置或网络连接。")
+        return
     # 生成 CLI 命令
     generate_cli_commands(swagger_json,subparsers)
 
@@ -201,37 +461,5 @@ def main():
     else:
         parser.print_help()
     
-    # # Handle config command
-    # if args.command == 'api':
-    #     # 加载配置
-    #     config = load_config()
-
-    #     # 加载 Swagger JSON
-    #     swagger_json = load_swagger_json(config['swagger'])
-
-    #     # 生成 CLI 命令
-    #     commands = generate_cli_commands(swagger_json)
-
-    #     # 创建多级命令结构
-    #     command_structure = create_command_structure(commands)
-
-    #     # 添加多级子命令
-    #     api_parser = subparsers.add_parser('api', help='Call API based on Swagger')
-    #     add_subparsers(api_parser, commands)
-
-    #     # 解析 API 子命令
-    #     api_args = api_parser.parse_args()
-
-    #     # 验证路径是否存在
-    #     if api_args.subcommand not in command_structure:
-    #         raise ValueError(f"Path {api_args.subcommand} not found in Swagger JSON")
-
-    #     command = command_structure[api_args.subcommand]
-    #     api_prefix = config['url']
-    #     response_data = build_request(command, api_args.params, config['token'], api_prefix, api_args.json)
-
-    #     # 输出结果
-    #     output_to_table(response_data, api_args.out)
-
 if __name__ == '__main__':
     main()
