@@ -450,10 +450,11 @@ def main():
     # 加载 Swagger JSON
     swagger_json = load_swagger_json(config['swagger'])
     if not swagger_json:
+        print(f"Loaded Swagger JSON from {config['swagger']}")
         print("无法加载 Swagger JSON，请检查配置或网络连接。")
-        return
-    # 生成 CLI 命令
-    generate_cli_commands(swagger_json,subparsers)
+    else:
+        # 生成 CLI 命令
+        generate_cli_commands(swagger_json,subparsers)
 
     args = parser.parse_args()
     if hasattr(args, 'func'):
