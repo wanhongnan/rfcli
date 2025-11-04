@@ -76,16 +76,33 @@
 # python开发工具
 ```
 1.vscode
+2.PyCharm
+3.Spyder
+4.Jupyter Notebook
 ```
 
 # 大语言模型工具
 ```
-1.cherry studio MCP 大语言工具调用接口
-   MCP服务 mcp.so
+1.cherry studio 大语言工具调用接口 MCP Host
+   MCP服务 mcp.so, mcpmarket.com, smithery.ai
 2.langchain
 3.openai
 4.faiss-cpu
 5.open-webui 知识库录入API和web UI
+6.MCP协议(工具调用),A2A协议(综合调度安排),RAG
+```
+
+# MCP Host
+```
+1.Cherry Studio 大语言工具调用接口 MCP Host
+2.Claude Desktop
+3.Cursor
+4.Cline    VSCode插件
+```
+
+# 模型站点
+```
+1.openrouter.ai 模型选用
 ```
 
 # 知识库
