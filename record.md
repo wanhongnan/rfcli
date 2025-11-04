@@ -90,6 +90,8 @@
 4.faiss-cpu
 5.open-webui 知识库录入API和web UI
 6.MCP协议(工具调用),A2A协议(综合调度安排),RAG
+7.概念Prompt,Agent,MCP,Function Calling
+8.AutoGPT
 ```
 
 # MCP Host
@@ -107,8 +109,9 @@
 
 # 知识库
 ```
-5.Docsify / Wiki.js / BookStack 简单文档型知识库
-6.LangChain / LlamaIndex + 向量数据库， AI 问答 + 私有知识
-7.Confluence / GitBook（商用）或定制开发 企业级知识门户
+1.Docsify / Wiki.js / BookStack 简单文档型知识库
+2.LangChain / LlamaIndex + 向量数据库， AI 问答 + 私有知识
+3.Confluence / GitBook（商用）或定制开发 企业级知识门户
 
 ```
+
