@@ -115,3 +115,18 @@
 
 ```
 
+# 常用MCP
+1.Graphiti MCP 外置记忆体
+2.Opik MCP Server 追踪Agent
+3.Ragie MCP 对视屏提问
+4.Bright Data 网页交互
+5.Jupyter MCP Server 机器学习
+6.MindsDB Server MCP 链接200多个数据库
+7.Context7 MCP, 数据库MCP: Supabase,Neon,PostgreSQL,SQLite,MongoDB,MindsDB
+8.Playwright MCP, 浏览器自动化改错Browser Tools MCP 
+9.Windows-MCP , 操作电脑的MCP
+10.Chrome MCP, 自动化完成浏览器任务的MCP
+
+
+
+
