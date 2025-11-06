@@ -89,9 +89,12 @@
 3.openai
 4.faiss-cpu
 5.open-webui 知识库录入API和web UI
-6.MCP协议(工具调用),A2A协议(综合调度安排),RAG
-7.概念Prompt,Agent,MCP,Function Calling
-8.AutoGPT
+6.mcpo,  由open-webui开发的mcp代理
+7.MCP协议(工具调用),A2A协议(综合调度安排),RAG
+8.概念Prompt,Agent,MCP,Function Calling
+9.AutoGPT
+10.olama
+11.mcp server官方仓库
 ```
 
 # MCP Host
